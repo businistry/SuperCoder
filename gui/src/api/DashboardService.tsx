@@ -5,8 +5,8 @@ import {
 } from '../../types/projectsTypes';
 import { FormStoryPayload } from '../../types/storyTypes';
 import {
-  CommentReBuildPayload,
   CommentReBuildDesignStoryPayload,
+  CommentReBuildPayload,
   CreatePullRequestPayload,
 } from '../../types/pullRequestsTypes';
 import { CreateOrUpdateLLMAPIKeyPayload } from '../../types/modelsTypes';
@@ -14,14 +14,25 @@ import {
   CreateDesignStoryPayload,
   EditDesignStoryPayload,
 } from '../../types/designStoryTypes';
+import { authPayload, UserData } from '../../types/authTypes';
 
 export const checkHealth = () => {
   return api.get(`/health`);
 };
 
-// GitHub Sign In
-export const githubSignIn = () => {
-  return api.get(`/github/signin`);
+// Auth APIS
+export const checkUserEmailExists = (user_email: string) => {
+  return api.get(`/auth/check_user`, {
+    params: { user_email },
+  });
+};
+
+export const login = (payload: authPayload) => {
+  return api.post(`/auth/sign_in`, payload);
+};
+
+export const signUp = (payload: authPayload) => {
+  return api.post(`/auth/sign_up`, payload);
 };
 
 // Project APIs
@@ -111,8 +122,8 @@ export const getPullRequestDiff = (pr_id: number) => {
 };
 
 // Model APIs
-export const getLLMAPIKeys = (organisation_id: string) => {
-  return api.get(`/llm_api_key/${organisation_id}`);
+export const getLLMAPIKeys = () => {
+  return api.get(`/llm_api_key`);
 };
 
 export const createOrUpdateLLMAPIKey = (
@@ -122,7 +133,6 @@ export const createOrUpdateLLMAPIKey = (
 };
 
 // design Story APIs
-
 export const getAllDesignStoriesOfProject = (project_id: string) => {
   return api.get(`/projects/${project_id}/design/stories`);
 };
@@ -169,4 +179,13 @@ export const rebuildDesignStory = (
 
 export const updateReviewViewedStatus = (story_id: number) => {
   return api.put(`/stories/design/review_viewed/${story_id}`, {});
+};
+
+export const getUserDetails = async (): Promise<UserData> => {
+  const response = await api.get(`/users/details`);
+  return response.data;
+};
+
+export const logoutUser = async () => {
+  return api.post(`/auth/logout`);
 };

@@ -5,7 +5,6 @@ import (
 	"ai-developer/app/types/request"
 	"github.com/gin-gonic/gin"
 	"net/http"
-	"strconv"
 )
 
 type LLMAPIKeyController struct {
@@ -19,22 +18,32 @@ func (c *LLMAPIKeyController) CreateLLMAPIKey(context *gin.Context) {
 		context.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+
 	userID, exists := context.Get("user_id")
 	if !exists {
 		context.JSON(http.StatusInternalServerError, gin.H{"error": "User ID not found in context"})
 		return
 	}
-	orgId, err := c.userService.FetchOrganisationIDByUserID(uint(userID.(int)))
+
+	orgId, err := c.userService.FetchOrganisationIDByUserID(userID.(uint))
 	if err != nil {
 		context.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	err = c.llmAPIKeyService.CreateOrUpdateLLMAPIKey(orgId, createLLMAPIKey.LLMModel, createLLMAPIKey.LLMAPIKey)
-	if err != nil {
-		context.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
+
+	for _, apiKey := range createLLMAPIKey.APIKeys {
+		if apiKey.LLMAPIKey == nil {
+			err = c.llmAPIKeyService.CreateOrUpdateLLMAPIKey(orgId, apiKey.LLMModel, "")
+		} else {
+			err = c.llmAPIKeyService.CreateOrUpdateLLMAPIKey(orgId, apiKey.LLMModel, *apiKey.LLMAPIKey)
+		}
+		if err != nil {
+			context.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
 	}
-	context.JSON(http.StatusOK, gin.H{"message": "LLM API Key created successfully"})
+
+	context.JSON(http.StatusOK, gin.H{"message": "LLM API Keys created successfully"})
 }
 
 func (c *LLMAPIKeyController) FetchAllLLMAPIKeyByOrganisationID(context *gin.Context) {
@@ -43,29 +52,18 @@ func (c *LLMAPIKeyController) FetchAllLLMAPIKeyByOrganisationID(context *gin.Con
 		context.JSON(http.StatusInternalServerError, gin.H{"error": "User ID not found in context"})
 		return
 	}
-	organisationID := context.Param("organisation_id")
-	organisationIDInt, err := strconv.Atoi(organisationID)
-	if err != nil {
-		context.JSON(http.StatusBadRequest, gin.H{"error": "Invalid organisation ID"})
-		return
-	}
-	userIDInt, ok := userID.(int)
+	userIDInt, ok := userID.(uint)
 	if !ok {
 		context.JSON(http.StatusBadRequest, gin.H{"error": "User ID is not of type int"})
 		return
 	}
-	var organisationIdByUserID uint
-	organisationIdByUserID, err = c.userService.FetchOrganisationIDByUserID(uint(userIDInt))
-	if organisationIDInt != int(organisationIdByUserID) {
-		context.JSON(http.StatusInternalServerError, gin.H{"error": "User does not have access to this organisation"})
-		return
-	}
+	organisationIdByUserID, err := c.userService.FetchOrganisationIDByUserID(uint(userIDInt))
 	if err != nil {
 		context.JSON(http.StatusBadRequest, gin.H{"error": "Invalid organisation ID"})
 		return
 	}
 
-	output, err := c.llmAPIKeyService.GetAllLLMAPIKeyByOrganisationID(uint(organisationIDInt))
+	output, err := c.llmAPIKeyService.GetAllLLMAPIKeyByOrganisationID(organisationIdByUserID)
 	if err != nil {
 		context.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
